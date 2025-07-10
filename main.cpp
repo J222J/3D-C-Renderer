@@ -3,14 +3,14 @@
 #include<cmath>
 #include<iostream>
 #include<SDL2/SDL.h>
-#include<SDL2/SDL_image.h>
 #include<SDL2/SDL_timer.h>
 #include<vector>
 
 using namespace std;
 
-#define FOCAL_LENGTH 50
-#define WINDOW_WIDTH 900
+int FOCAL_LENGTH = 50;
+const int WINDOW_HEIGHT = 900;
+const int WINDOW_WIDTH = 1600;
 
 struct Coordinate3D {
 	int x, y, z;
@@ -37,73 +37,22 @@ void pixel(SDL_Renderer* renderer, int x, int y) {
 	SDL_RenderDrawPoint(renderer, x, y);
 }
 
+// updated line function (faster and works better)
 void line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, int t) {
-	int r = 1;
-	if (t == 1)
-		r = 0;
+	int dx = x2-x1;
+	int dy = y2-y1;
 
-	if (x1 == x2) {
-		if (y1 > y2) {
-			swap(x1, x2);
-			swap(y1, y2);
-		}
+	int steps = max(abs(dx), abs(dy));
+	double xstep = (double)dx/steps;
+	double ystep = (double)dy/steps;
 
-		for (int y = y1; y <= y2; y++) {
-			for (int a = x1-t/2; a <= x1+t/2; a++)
-				for (int b = y-t/2; b <= y+t/2-r; b++)
-					pixel(renderer, a, b);
-		}
-	} else {
-		if (x1 > x2) {
-			swap(x1, x2);
-			swap(y1, y2);
-		}
+	double curx = (double)x1;
+	double cury = (double)y1;
 
-		if (y1 <= y2) {
-			int dx = x2-x1;
-			int dy = y2-y1;
-		 
-			int x = x1;
-			int y = y1;
-		 
-			int p = 2*dy-dx;
-		 
-			while(x < x2) {
-				if(p >= 0) {
-					for (int a = x-t/2; a <= x+t/2; a++)
-						for (int b = y-t/2; b <= y+t/2-r; b++)
-							pixel(renderer, a, b);
-					y++;
-					p += 2*dy-2*dx;
-				} else {
-					for (int a = x-t/2; a <= x+t/2; a++)
-						for (int b = y-t/2; b <= y+t/2-r; b++)
-							pixel(renderer, a, b);
-					p += 2*dy;
-				}
-				x++;
-			}
-		} else {
-			int dx = x2-x1;
-			int dy = y1-y2;
-		 
-			int x = x2;
-			int y = y2;
-		 
-			int p = 2*dy-dx;
-		 
-			while(x > x1) {
-				if(p >= 0) {
-					pixel(renderer, x, y);
-					y++;
-					p += 2*dy-2*dx;
-				} else {
-					pixel(renderer, x, y);
-					p += 2*dy;
-				}
-				x--;
-			}
-		}
+	while (steps--) {
+		pixel(renderer, (int)curx, (int)cury);
+		curx += xstep;
+		cury += ystep;
 	}
 }
 
@@ -151,7 +100,7 @@ int main() {
     SDL_Window* window;
 
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_WIDTH, 0, &window, &renderer);
+    SDL_CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, 0, &window, &renderer);
 
     // Reset the scene (could be useful for animations)
 
@@ -162,7 +111,7 @@ int main() {
     SDL_Rect backg;
     backg.x = 0;
     backg.y = 0;
-    backg.h = WINDOW_WIDTH;
+    backg.h = WINDOW_HEIGHT;
     backg.w = WINDOW_WIDTH;
 
     // Draw
@@ -182,7 +131,7 @@ int main() {
 													   {{100+200, 200, 200}, {100+200, 200, 205}},
 													   {{200+200, 200, 200}, {200+200, 200, 205}}};
 	
-    while (1) {
+    while (true) {
         if (SDL_PollEvent(&event) && event.type == SDL_QUIT)
 	    	break;
 
@@ -196,7 +145,7 @@ int main() {
 			Coordinate2D B = C3DtoC2D(VectorToC3D(e.second));
 
 			line(renderer, A.x, A.y, B.x, B.y, 4);
-			if (A.x >= WINDOW_WIDTH-10 or B.x >= WINDOW_WIDTH-10 or A.y >= WINDOW_WIDTH-10 or B.y >= WINDOW_WIDTH-10)
+			if (A.x >= WINDOW_WIDTH-100 or B.x >= WINDOW_WIDTH-100 or A.y >= WINDOW_HEIGHT-100 or B.y >= WINDOW_HEIGHT-100)
 				dox = false;
 		}
 
@@ -205,9 +154,36 @@ int main() {
 				e.first[2]--;
 				e.second[2]--;
 			}
+		if (!dox)
+			break;
 
 		SDL_RenderPresent(renderer);
-		SDL_Delay(1000/120);
+		SDL_Delay(1000/60);
+    }
+
+    int add = 1;
+    while (true) {
+    	if (SDL_PollEvent(&event) and event.type == SDL_QUIT)
+    		break;
+
+    	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    	SDL_RenderFillRect(renderer, &backg);
+
+    	for (pair<vector<int>, vector<int>> e : vertices) {
+    		Coordinate2D A = C3DtoC2D(VectorToC3D(e.first));
+			Coordinate2D B = C3DtoC2D(VectorToC3D(e.second));
+
+			line(renderer, A.x, A.y, B.x, B.y, 4);
+    	}
+
+    	FOCAL_LENGTH += add;
+    	if (FOCAL_LENGTH >= 150)
+    		add = -1;
+    	if (FOCAL_LENGTH <= 50)
+    		add = 1;
+
+    	SDL_RenderPresent(renderer);
+    	SDL_Delay(1000/60);
     }
 
     SDL_DestroyRenderer(renderer);
